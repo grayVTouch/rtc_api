@@ -6,7 +6,7 @@
  * Time: 10:03
  */
 
-namespace App\Http\Controllers\admin;
+namespace App\Http\Controllers\v1;
 
 
 class Index extends Base
