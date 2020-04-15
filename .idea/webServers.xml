@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="69953d2e-b231-4ee9-b092-2f198317c2d6" name="rtc_api_nesm" url="http://47.88.223.82">
+        <fileTransfer host="47.88.223.82" port="22" rootFolder="/running/web/rtc_api_nesm" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" shareSSLContext="true" />
+          </advancedOptions>
+          <option name="port" value="22" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
