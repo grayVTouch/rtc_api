@@ -9,6 +9,8 @@
 namespace App\Customize\v1\model;
 
 
+use function core\convert_obj;
+
 class FriendCircleCommendationModel extends Model
 {
     protected $table = 'rtc_friend_circle_commendation';
@@ -30,5 +32,23 @@ class FriendCircleCommendationModel extends Model
             ['user_id' , '=' , $user_id] ,
             ['friend_circle_id' , '=' , $friend_circle_id] ,
         ])->delete();
+    }
+
+    // 获取点赞数量
+    public static function getByFriendCircleIdAndUserIds($friend_circle_id , array $user_ids = [])
+    {
+        $res = self::where('friend_circle_id' , $friend_circle_id)
+            ->whereIn('user_id' , $user_ids)
+            ->orderBy('id' , 'asc')
+            ->get();
+        $res = convert_obj($res);
+        self::multiple($res);
+        return $res;
+    }
+
+    public static function delByFriendCircleId($friend_circle_id)
+    {
+        return self::where('friend_circle_id' , $friend_circle_id)
+            ->delete();
     }
 }

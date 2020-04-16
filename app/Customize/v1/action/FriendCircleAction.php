@@ -16,6 +16,8 @@ use App\Customize\v1\model\FriendCircleMediaModel;
 use App\Customize\v1\model\FriendCircleModel;
 use App\Customize\v1\model\FriendCircleUnreadModel;
 use App\Customize\v1\model\FriendModel;
+use App\Customize\v1\util\ChatUtil;
+use App\Customize\v1\util\FriendCircleUtil;
 use App\Http\Controllers\v1\Auth;
 use App\Http\Controllers\v1\FriendCircle;
 use function core\array_unit;
@@ -68,6 +70,7 @@ class FriendCircleAction extends Action
              * 2. 排除好友里面不查看自己朋友圈的那些人
              */
             $friends = FriendModel::myFriendExcludeBlockUserByUserId(user()->id);
+            $user_ids = [];
             foreach ($friends as $v)
             {
                 $friend_circle_unread = FriendCircleUnreadModel::findOrCreateByUserId($v->friend_id);
@@ -75,8 +78,10 @@ class FriendCircleAction extends Action
                     'total_unread_count' => $friend_circle_unread->total_unread_count++ ,
                     'friend_circle_unread_count' => $friend_circle_unread->friend_circle_unread_count++ ,
                 ]);
+                $user_ids[] = $v->friend_id;
             }
             DB::commit();
+            ChatUtil::api_notifyAll($user_ids , 'refresh_friend_circle_unread');
             return self::success();
         } catch (Exception $e) {
             DB::rollBack();
@@ -87,14 +92,103 @@ class FriendCircleAction extends Action
     // 朋友圈列表
     public static function myFriendCircle(Auth $auth , array $param)
     {
-        $res = FriendCircleModel::myFriendCircle($auth->user->id);
+        $limit_id = empty($param['limit_id']) ? 0 : $param['limit_id'];
+        $limit = empty($param['limit']) ? api_config('app.limit') : $param['limit'];
+        $user_ids = FriendModel::getFriendIdsByUserId(user()->id);
+        $user_ids[] = user()->id;
+        $res = FriendCircleModel::myFriendCircle(user()->id , $user_ids , $limit_id , $limit);
+        foreach ($res as $v)
+        {
+            // 获取评论
+            $comment = FriendCircleCommentModel::getByFriendCircleIdAndUserIds($v->id , $user_ids);
+            // 获取点赞
+            $commendation = FriendCircleCommendationModel::getByFriendCircleIdAndUserIds($v->id , $user_ids);
+            // 获取媒体
+            $media = FriendCircleMediaModel::getByFriendCircleId($v->id);
+            // 针对评论的处理
+            foreach ($comment as $v1)
+            {
+                FriendCircleUtil::handleComment($v1);
+            }
+            foreach ($commendation as $v1)
+            {
+                FriendCircleUtil::handleCommendation($v);
+            }
+            $v->comment = $comment;
+            $v->commendation = $commendation;
+            $v->media = $media;
+            FriendCircleUtil::handleFriendCircle($v);
+        }
+        return self::success($res);
     }
 
 
-    // 点赞列表
-    // 好友列表
+    // 单条朋友圈
+    public static function friendCircle(Auth $auth , array $param)
+    {
+        $validator = Validator::make($param , [
+            'friend_circle_id' => 'required'
+        ]);
+        if ($validator->fails()) {
+            return self::error(get_form_error($validator));
+        }
+        $friend_circle = FriendCircleModel::findById($param['friend_circle_id']);
+        if (empty($friend_circle)) {
+            return self::error("未找到朋友圈相关信息" , 404);
+        }
+        $user_ids = FriendModel::getFriendIdsByUserId(user()->id);
+        $user_ids[] = user()->id;
+        // 获取评论
+        $comment = FriendCircleCommentModel::getByFriendCircleIdAndUserIds($friend_circle->id , $user_ids);
+        // 获取点赞
+        $commendation = FriendCircleCommendationModel::getByFriendCircleIdAndUserIds($friend_circle->id , $user_ids);
+        // 获取媒体
+        $media = FriendCircleMediaModel::getByFriendCircleId($friend_circle->id);
+        // 针对评论的处理
+        foreach ($comment as $v)
+        {
+            FriendCircleUtil::handleComment($v);
+        }
+        foreach ($commendation as $v)
+        {
+            FriendCircleUtil::handleCommendation($v);
+        }
+        $friend_circle->comment = $comment;
+        $friend_circle->commendation = $commendation;
+        $friend_circle->media = $media;
+        FriendCircleUtil::handleFriendCircle($friend_circle);
+        return self::success($friend_circle);
+    }
 
-    // 朋友圈点赞
+    // 删除朋友圈
+    public static function delFriendCircle(Auth $auth , array $param)
+    {
+        $validator = Validator::make($param , [
+            'friend_circle_id' => 'required'
+        ]);
+        if ($validator->fails()) {
+            return self::error(get_form_error($validator));
+        }
+        $friend_circle = FriendCircleModel::findById($param['friend_circle_id']);
+        if (empty($friend_circle)) {
+            return self::error("未找到朋友圈相关信息" , 404);
+        }
+        try {
+            DB::beginTransaction();
+            FriendCircleCommendationModel::delByFriendCircleId($friend_circle->id);
+            FriendCircleCommentModel::delByFriendCircleId($friend_circle->id);
+            FriendCircleMediaModel::delByFriendCircleId($friend_circle->id);
+            FriendCircleModel::delById($friend_circle->id);
+            DB::commit();
+            return self::success();
+        } catch(Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+
+    // 朋友圈点赞（取消点赞）
     public static function commendation(Auth $auth , array $param)
     {
         $validator = Validator::make($param , [
@@ -110,27 +204,35 @@ class FriendCircleAction extends Action
         try {
             DB::beginTransaction();
             $res = FriendCircleCommendationModel::findByUserIdAndFriendCircleId($param['friend_circle_id'] , user()->id);
+            $type = '';
+            $user_ids = [];
             if (empty($res)) {
+                $type = 'add';
                 // 新增点赞
                 FriendCircleCommendationModel::insertGetId([
                     'user_id'   => user()->id ,
                     'friend_circle_sender'  => $friend_circle->user_id ,
                     'friend_circle_id' => $friend_circle->id
                 ]);
+                $friends = FriendModel::myFriendByUserId(user()->id);
+                foreach ($friends as $v)
+                {
+                    $friend_circle_unread = FriendCircleUnreadModel::findOrCreateByUserId($v->friend_id);
+                    FriendCircleUnreadModel::updateById($friend_circle_unread->id , [
+                        'commendation_unread_count' => $friend_circle_unread->commendation_unread_count++ ,
+                        'common_unread_count' => $friend_circle_unread->common_unread_count++
+                    ]);
+                    $user_ids[] = $v->friend_id;
+                }
             } else {
+                $type = 'cancel';
                 // 取消点赞
                 FriendCircleCommendationModel::delByUserIdAndFriendCircleId(user()->id , $friend_circle->id);
             }
-            $friends = FriendModel::myFriendByUserId(user()->id);
-            foreach ($friends as $v)
-            {
-                $friend_circle_unread = FriendCircleUnreadModel::findOrCreateByUserId($v->friend_id);
-                FriendCircleUnreadModel::updateById($friend_circle_unread->id , [
-                    'commendation_unread_count' => $friend_circle_unread->commendation_unread_count++ ,
-                    'common_unread_count' => $friend_circle_unread->common_unread_count++
-                ]);
-            }
             DB::commit();
+            if ($type == 'add') {
+                ChatUtil::api_notifyAll($user_ids , 'refresh_friend_circle_unread');
+            }
             return self::success();
         } catch(Exception $e) {
             DB::rollBack();
@@ -170,6 +272,7 @@ class FriendCircleAction extends Action
                 'content' => $param['content'] ,
             ]);
             $friends = FriendModel::myFriendByUserId(user()->id);
+            $user_ids = [];
             foreach ($friends as $v)
             {
                 $friend_circle_unread = FriendCircleUnreadModel::findOrCreateByUserId($v->friend_id);
@@ -177,8 +280,10 @@ class FriendCircleAction extends Action
                     'comment_unread_count' => $friend_circle_unread->comment_unread_count++ ,
                     'common_unread_count' => $friend_circle_unread->common_unread_count++
                 ]);
+                $user_ids[] = $v->friend_id;
             }
             DB::commit();
+            ChatUtil::api_notifyAll($user_ids , 'refresh_friend_circle_unread');
             return self::success();
         } catch(Exception $e) {
             DB::rollBack();
@@ -200,26 +305,9 @@ class FriendCircleAction extends Action
         if (empty($comment)) {
             return self::error('未找到评论信息' , 404);
         }
-        try {
-            DB::beginTransaction();
-            FriendCircleCommentModel::delById($param['friend_circle_comment_id']);
-            $friends = FriendModel::myFriendByUserId(user()->id);
-            foreach ($friends as $v)
-            {
-                $friend_circle_unread = FriendCircleUnreadModel::findOrCreateByUserId($v->friend_id);
-                FriendCircleUnreadModel::updateById($friend_circle_unread->id , [
-                    'comment_unread_count' => $friend_circle_unread->comment_unread_count++ ,
-                    'common_unread_count' => $friend_circle_unread->common_unread_count++
-                ]);
-            }
-            DB::commit();
-            return self::success();
-        } catch(Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
+        FriendCircleCommentModel::delById($param['friend_circle_comment_id']);
+        return self::success();
     }
-
 
 
 

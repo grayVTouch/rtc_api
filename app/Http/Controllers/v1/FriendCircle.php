@@ -27,4 +27,73 @@ class FriendCircle extends Auth
         }
         return success($res['data']);
     }
+
+    public function myFriendCircle()
+    {
+        $param = $this->request->post();
+        $param['limit_id'] = $param['limit_id'] ?? '';
+        $param['limit'] = $param['limit'] ?? '';
+        $res = FriendCircleAction::myFriendCircle($this , $param);
+        if ($res['code'] != 0) {
+            return error($res['data'] , $res['code']);
+        }
+        return success($res['data']);
+    }
+
+    public function friendCircle()
+    {
+        $param = $this->request->post();
+        $param['friend_circle_id'] = $param['friend_circle_id'] ?? '';
+        $res = FriendCircleAction::myFriendCircle($this , $param);
+        if ($res['code'] != 0) {
+            return error($res['data'] , $res['code']);
+        }
+        return success($res['data']);
+    }
+
+    public function delFriendCircle()
+    {
+        $param = $this->request->post();
+        $param['friend_circle_id'] = $param['friend_circle_id'] ?? '';
+        $res = FriendCircleAction::delFriendCircle($this , $param);
+        if ($res['code'] != 0) {
+            return error($res['data'] , $res['code']);
+        }
+        return success($res['data']);
+    }
+
+    public function commendation()
+    {
+        $param = $this->request->post();
+        $param['friend_circle_id'] = $param['friend_circle_id'] ?? '';
+        $res = FriendCircleAction::commendation($this , $param);
+        if ($res['code'] != 0) {
+            return error($res['data'] , $res['code']);
+        }
+        return success($res['data']);
+    }
+
+    public function comment()
+    {
+        $param = $this->request->post();
+        $param['friend_circle_id'] = $param['friend_circle_id'] ?? '';
+        $param['content'] = $param['content'] ?? '';
+        $res = FriendCircleAction::comment($this , $param);
+        if ($res['code'] != 0) {
+            return error($res['data'] , $res['code']);
+        }
+        return success($res['data']);
+    }
+
+    public function delComment()
+    {
+        $param = $this->request->post();
+        $param['friend_circle_comment_id'] = $param['friend_circle_id'] ?? '';
+        $res = FriendCircleAction::delComment($this , $param);
+        if ($res['code'] != 0) {
+            return error($res['data'] , $res['code']);
+        }
+        return success($res['data']);
+    }
+
 }

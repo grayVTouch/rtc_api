@@ -56,4 +56,34 @@ class FriendModel extends Model
         self::multiple($res);
         return $res;
     }
+
+    public static function getByUserId($user_id)
+    {
+        $res = self::where('user_id' , $user_id)
+            ->get();
+        self::multiple($res);
+        return $res;
+    }
+
+    public static function getFriendIdsByUserId($user_id)
+    {
+        $res = self::getByUserId($user_id);
+        $user_ids = [];
+        foreach ($res as $v)
+        {
+            $user_ids[] = $v->friend_id;
+        }
+        return $user_ids;
+    }
+
+    public static function findByUserIdAndFriendId($user_id , $friend_id)
+    {
+        $res = self::where([
+                ['user_id' , '=' , $user_id] ,
+                ['friend_id' , '=' , $friend_id] ,
+            ])
+            ->first();
+        self::single($res);
+        return $res;
+    }
 }

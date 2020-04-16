@@ -19,6 +19,8 @@ use ReflectionClass;
 
 class Base extends Controller
 {
+    public $request;
+
     public function __construct(Request $request)
     {
         $this->request = $request;

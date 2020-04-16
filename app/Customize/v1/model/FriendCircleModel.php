@@ -9,31 +9,51 @@
 namespace App\Customize\v1\model;
 
 
+use function core\convert_obj;
+
 class FriendCircleModel extends Model
 {
     protected $table = 'rtc_friend_circle';
 
-    public static function myFriendCircle($user_id)
+    public static function myFriendCircle($user_id , $user_ids , $limit_id , $limit)
     {
-        $res = self::where('user_id' , $user_id)
-            ->whereNotExists(function($query){
+//        $sql = <<<EOT
+//        select * from rtc_friend_circle as f where f.user_id in (1,2,3,4) and
+//          -- 不看谁
+//          not exists (select id from rtc_friend_circle_visible where type = 0 and user_id = 1 and relative_user_id = f.user_id) and
+//          -- 不让谁看
+//          not exists (select id from rtc_friend_circle_visible where type = 1 and user_id = f.user_id and relative_user_id = 1)
+//          -- 朋友圈可见性时间限定
+//EOT;
+        $res = self::whereIn('user_id' , $user_ids);
+        if (empty($limit_id)) {
+            $res->where('id' , '<' , $limit_id);
+        }
+        $res = $res->whereNotExists(function($query) use($user_id){
                 $query->select('id')
                     ->from('rtc_friend_circle_visible')
-                    ->whereRaw('
-                        user_id = rtc_friend.user_id and 
-                        relative_user-id = rtc_friend.friend_id and
-                        type = 1 
-                    ');
+                    ->whereRaw("
+                        user_id = {$user_id} and 
+                        relative_user_id = rtc_friend_circle.user_id and
+                        type = 0
+                    ");
             })
-            ->whereNotExists(function($query){
+            ->whereNotExists(function($query) use($user_id){
                 $query->select('id')
                     ->from('rtc_friend_circle_visible')
-                    ->whereRaw('
-                        user_id = rtc_friend.friend_id and 
-                        relative_user-id = rtc_friend.user_id and
-                        type = 1 
-                    ');
+                    ->whereRaw("
+                        user_id = rtc_friend_circle.user_id and 
+                        relative_user_id = {$user_id} and
+                        type = 1
+                    ");
             })
+            ->orderBy('id' , 'desc')
             ->get();
+        $res = convert_obj($res);
+        foreach ($res as $v)
+        {
+            self::single($v);
+        }
+        return $res;
     }
 }

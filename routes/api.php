@@ -31,9 +31,9 @@ Route::prefix("v1")
 
         Route::post("friend_circle/publish" , "FriendCircle@publish");
         Route::post("friend_circle/comment" , "FriendCircle@comment");
-        Route::post("friend_circle/commendate" , "FriendCircle@commendate");
+        Route::post("friend_circle/commendation" , "FriendCircle@commendation");
         Route::post("friend_circle/delComment" , "FriendCircle@delComment");
         Route::post("friend_circle/myFriendCircle" , "FriendCircle@myFriendCircle");
-        Route::post("friend_circle/comments" , "FriendCircle@comments");
-        Route::post("friend_circle/commendation" , "FriendCircle@commendation");
+        Route::post("friend_circle/friendCircle" , "FriendCircle@friendCircle");
+        Route::post("friend_circle/delFriendCircle" , "FriendCircle@delFriendCircle");
     });
