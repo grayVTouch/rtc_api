@@ -6,7 +6,7 @@
  * Time: 14:27
  */
 
-namespace App\Customize\admin\middleware;
+namespace App\Customize\v1\middleware;
 
 use Closure;
 

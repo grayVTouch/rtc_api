@@ -8,8 +8,8 @@
 
 namespace App\Http\Controllers\v1;
 
-use App\Customize\Admin\Http\Middleware\LoaderMiddleware;
-use App\Customize\admin\middleware\ThrowableMiddleware;
+use App\Customize\v1\Middleware\LoaderMiddleware;
+use App\Customize\v1\middleware\ThrowableMiddleware;
 use App\Customize\v1\middleware\CustomizeMiddleware;
 use App\Customize\v1\middleware\UserAuthMiddleware;
 use App\Http\Controllers\Controller;
