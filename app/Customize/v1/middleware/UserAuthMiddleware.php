@@ -60,6 +60,7 @@ class UserAuthMiddleware
                 app()->instance('user' , $user);
                 return $this->response('验证成功');
             }
+            return $this->response('请提供 user_id 表明调试的用户身份' , 400);
         }
         if (empty($param['user_id']) || empty($param['token'])) {
             // 用户认证失败
