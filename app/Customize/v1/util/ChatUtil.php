@@ -15,7 +15,7 @@ class ChatUtil extends Util
 {
 
     // 通知
-    public static $url = 'http://ws.rongchuang.xyz:10002';
+    public static $url = 'http://127.0.0.1:10001';
 
     public static function genUrl($uri)
     {

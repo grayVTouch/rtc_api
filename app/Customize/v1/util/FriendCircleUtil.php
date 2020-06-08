@@ -34,6 +34,9 @@ class FriendCircleUtil extends Util
 
     public static function handleFriendCircle($friend_circle , $relation_user_id = 0)
     {
-        $friend_circle->is_commendation = empty(FriendCircleCommendationModel::findByUserIdAndFriendCircleId($friend_circle->id , $relation_user_id)) ? 0 : 1;
+
+        $friend_circle->user = UserModel::findById($friend_circle->user_id);
+        $friend_circle->is_commendation = empty(FriendCircleCommendationModel::findByUserIdAndFriendCircleId($relation_user_id , $friend_circle->id)) ? 0 : 1;
+        UserUtil::handle($friend_circle->user , $relation_user_id);
     }
 }

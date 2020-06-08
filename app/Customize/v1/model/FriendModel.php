@@ -31,7 +31,7 @@ class FriendModel extends Model
                     ->from('rtc_friend_circle_visible')
                     ->whereRaw('
                         user_id = rtc_friend.user_id and 
-                        relative_user-id = rtc_friend.friend_id and
+                        relation_user_id = rtc_friend.friend_id and
                         type = 1 
                     ');
             })
@@ -40,7 +40,7 @@ class FriendModel extends Model
                     ->from('rtc_friend_circle_visible')
                     ->whereRaw('
                         user_id = rtc_friend.friend_id and 
-                        relative_user-id = rtc_friend.user_id and
+                        relation_user_id = rtc_friend.user_id and
                         type = 1 
                     ');
             })

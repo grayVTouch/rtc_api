@@ -22,7 +22,7 @@ class FriendCircleUnreadModel extends Model
     public static function findOrCreateByUserId($user_id)
     {
         $res = self::where('user_id' , $user_id)
-            ->find();
+            ->first();
         if (empty($res)) {
             $id = self::insertGetId([
                 'user_id' => $user_id

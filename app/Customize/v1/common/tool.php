@@ -29,7 +29,7 @@ function get_value($k , $val = '')
 }
 
 // 成功
-function success($data = '' , $code = 200)
+function success($data = '' , $code = 0)
 {
     return api_response($data , $code);
 }

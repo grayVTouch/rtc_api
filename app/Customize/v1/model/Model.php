@@ -14,6 +14,9 @@ use Illuminate\Database\Eloquent\Model as BaseModel;
 
 class Model extends BaseModel
 {
+    // 不使用 默认时间戳字段
+    public $timestamps = false;
+
     public static function multiple($list)
     {
         foreach ($list as &$v)

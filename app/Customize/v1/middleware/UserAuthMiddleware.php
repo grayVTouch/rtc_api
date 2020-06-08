@@ -47,14 +47,11 @@ class UserAuthMiddleware
 
     public function auth(Request $query)
     {
-        if ($query->input('debug') == config('app.debug')) {
-            return true;
-        }
         $param = $query->post();
         $param['user_id'] = $param['user_id'] ?? '';
         $param['token'] = $param['token'] ?? '';
-
         if ($param['token'] == 'debug') {
+
             if (!empty($param['user_id'])) {
                 $user = UserModel::findById($param['user_id']);
                 app()->instance('user' , $user);
@@ -68,7 +65,7 @@ class UserAuthMiddleware
         }
         $token = UserTokenModel::findByUserIdAndToken($param['user_id'] , $param['token']);
         if (empty($token)) {
-            return ;
+            return $this->response('token 错误' , 403);
         }
         $datetime = date('Y-m-d H:i:s' , time());
         if ($datetime > $token->expire) {

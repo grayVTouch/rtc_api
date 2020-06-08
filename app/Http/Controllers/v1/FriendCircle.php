@@ -44,7 +44,7 @@ class FriendCircle extends Auth
     {
         $param = $this->request->post();
         $param['friend_circle_id'] = $param['friend_circle_id'] ?? '';
-        $res = FriendCircleAction::myFriendCircle($this , $param);
+        $res = FriendCircleAction::friendCircle($this , $param);
         if ($res['code'] != 0) {
             return error($res['data'] , $res['code']);
         }
@@ -88,12 +88,59 @@ class FriendCircle extends Auth
     public function delComment()
     {
         $param = $this->request->post();
-        $param['friend_circle_comment_id'] = $param['friend_circle_id'] ?? '';
+        $param['friend_circle_comment_id'] = $param['friend_circle_comment_id'] ?? '';
         $res = FriendCircleAction::delComment($this , $param);
         if ($res['code'] != 0) {
             return error($res['data'] , $res['code']);
         }
         return success($res['data']);
     }
+
+    // 朋友圈-我的相册（自己发布的朋友圈）
+    public function targetFriendCircle()
+    {
+        $param = $this->request->post();
+        $param['limit'] = $param['limit'] ?? '';
+        $param['target_user_id'] = $param['target_user_id'] ?? '';
+        $res = FriendCircleAction::targetFriendCircle($this , $param);
+        if ($res['code'] != 0) {
+            return error($res['data'] , $res['code']);
+        }
+        return success($res['data']);
+    }
+
+    public function setBackground()
+    {
+        $param = $this->request->post();
+        $param['background'] = $param['background'] ?? '';
+        $res = FriendCircleAction::setBackground($this , $param);
+        if ($res['code'] != 0) {
+            return error($res['data'] , $res['code']);
+        }
+        return success($res['data']);
+    }
+
+    public function resetFriendCircleUnread()
+    {
+        $param = $this->request->post();
+        $res = FriendCircleAction::resetFriendCircleUnread($this , $param);
+        if ($res['code'] != 0) {
+            return error($res['data'] , $res['code']);
+        }
+        return success($res['data']);
+    }
+
+
+    public function friendCircleUnread()
+    {
+        $param = $this->request->post();
+        $res = FriendCircleAction::friendCircleUnread($this , $param);
+        if ($res['code'] != 0) {
+            return error($res['data'] , $res['code']);
+        }
+        return success($res['data']);
+    }
+
+
 
 }

@@ -16,6 +16,8 @@ use App\Customize\v1\model\FriendCircleMediaModel;
 use App\Customize\v1\model\FriendCircleModel;
 use App\Customize\v1\model\FriendCircleUnreadModel;
 use App\Customize\v1\model\FriendModel;
+use App\Customize\v1\model\UserModel;
+use App\Customize\v1\model\UserOptionModel;
 use App\Customize\v1\util\ChatUtil;
 use App\Customize\v1\util\FriendCircleUtil;
 use App\Http\Controllers\v1\Auth;
@@ -32,25 +34,28 @@ class FriendCircleAction extends Action
         $validator = Validator::make($param , [
             'type' => 'required' ,
             'content' => 'required' ,
-            'media' => 'required' ,
+//            'media' => 'required' ,
         ]);
-        if (!$validator->fails()) {
+        if ($validator->fails()) {
             return self::error(get_form_error($validator));
         }
         $media = json_decode($param['media'] , true);
-        if (empty($media)) {
-            return self::error("请提供朋友圈媒体文件");
-        }
+//        if (empty($media)) {
+//            return self::error("请提供朋友圈媒体文件");
+//        }
+        $media = empty($media) ? [] : $media;
         $type_for_friend_circle = api_config('business.type_for_friend_circle');
         if (!in_array($param['type'] , $type_for_friend_circle)) {
             return self::error("不支持的 type，当前受支持的 type 有：" . implode(',' , $type_for_friend_circle));
         }
         try {
             DB::beginTransaction();
-            $friend_circle_id = FriendCircleModel::insertGetId(array_unit($param , [
-                'type' ,
-                'content' ,
-            ]));
+            $friend_circle_id = FriendCircleModel::insertGetId([
+                'type' => $param['type'] ,
+                'content' => $param['content'] ,
+                'user_id' => user()->id
+            ]);
+//            print_r(json_encode(user()));
             // 新增媒体
             foreach ($media as $v)
             {
@@ -96,6 +101,7 @@ class FriendCircleAction extends Action
         $limit = empty($param['limit']) ? api_config('app.limit') : $param['limit'];
         $user_ids = FriendModel::getFriendIdsByUserId(user()->id);
         $user_ids[] = user()->id;
+
         $res = FriendCircleModel::myFriendCircle(user()->id , $user_ids , $limit_id , $limit);
         foreach ($res as $v)
         {
@@ -103,6 +109,7 @@ class FriendCircleAction extends Action
             $comment = FriendCircleCommentModel::getByFriendCircleIdAndUserIds($v->id , $user_ids);
             // 获取点赞
             $commendation = FriendCircleCommendationModel::getByFriendCircleIdAndUserIds($v->id , $user_ids);
+
             // 获取媒体
             $media = FriendCircleMediaModel::getByFriendCircleId($v->id);
             // 针对评论的处理
@@ -112,12 +119,12 @@ class FriendCircleAction extends Action
             }
             foreach ($commendation as $v1)
             {
-                FriendCircleUtil::handleCommendation($v);
+                FriendCircleUtil::handleCommendation($v1);
             }
             $v->comment = $comment;
             $v->commendation = $commendation;
             $v->media = $media;
-            FriendCircleUtil::handleFriendCircle($v);
+            FriendCircleUtil::handleFriendCircle($v , user()->id);
         }
         return self::success($res);
     }
@@ -156,7 +163,7 @@ class FriendCircleAction extends Action
         $friend_circle->comment = $comment;
         $friend_circle->commendation = $commendation;
         $friend_circle->media = $media;
-        FriendCircleUtil::handleFriendCircle($friend_circle);
+        FriendCircleUtil::handleFriendCircle($friend_circle , user()->id);
         return self::success($friend_circle);
     }
 
@@ -203,7 +210,7 @@ class FriendCircleAction extends Action
         }
         try {
             DB::beginTransaction();
-            $res = FriendCircleCommendationModel::findByUserIdAndFriendCircleId($param['friend_circle_id'] , user()->id);
+            $res = FriendCircleCommendationModel::findByUserIdAndFriendCircleId(user()->id , $param['friend_circle_id']);
             $type = '';
             $user_ids = [];
             if (empty($res)) {
@@ -301,6 +308,7 @@ class FriendCircleAction extends Action
         if ($validator->fails()) {
             return self::error(get_form_error($validator));
         }
+//        var_dump();
         $comment = FriendCircleCommentModel::findById($param['friend_circle_comment_id']);
         if (empty($comment)) {
             return self::error('未找到评论信息' , 404);
@@ -309,6 +317,117 @@ class FriendCircleAction extends Action
         return self::success();
     }
 
+    // 朋友圈-我自己发布的朋友圈
+    public static function targetFriendCircle(Auth $auth , array $param)
+    {
+        $validator = Validator::make($param , [
+            'target_user_id' ,
+        ]);
+        if ($validator->fails()) {
+            return self::error(get_form_error($validator));
+        }
+        $user = UserModel::findById($param['target_user_id']);
+        if (empty($user)) {
+            return self::error('用户未找到' , 404);
+        }
+        $limit = empty($param['limit']) ? api_config('app.limit') : $param['limit'];
+        $res = FriendCircleModel::getByUserId($user->id , $limit);
+        $user_ids = FriendModel::getFriendIdsByUserId($user->id);
+        $user_ids[] = $user->id;
+        $res_for_year = [];
+        $exists = function($y) use(&$res_for_year){
+            foreach ($res_for_year as $v)
+            {
+                if ($v['year'] == $y) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        foreach ($res->data as $v)
+        {
+            // 获取评论
+            $comment = FriendCircleCommentModel::getByFriendCircleIdAndUserIds($v->id , $user_ids);
+            // 获取点赞
+            $commendation = FriendCircleCommendationModel::getByFriendCircleIdAndUserIds($v->id , $user_ids);
+            // 获取媒体
+            $media = FriendCircleMediaModel::getByFriendCircleId($v->id);
+            // 针对评论的处理
+            foreach ($comment as $v1)
+            {
+                FriendCircleUtil::handleComment($v1);
+            }
+            foreach ($commendation as $v1)
+            {
+                FriendCircleUtil::handleCommendation($v1);
+            }
+            $v->comment = $comment;
+            $v->commendation = $commendation;
+            $v->media = $media;
+            FriendCircleUtil::handleFriendCircle($v , user()->id);
+            if (!$exists($v->year)) {
+                $res_for_year[] = [
+                    'year' => $v->year ,
+                    'data' => [$v]
+                ];
+            } else {
+                foreach ($res_for_year as &$v1)
+                {
+                    if ($v1['year'] == $v->year) {
+                        $v1['data'][] = $v;
+                    }
+                }
+            }
+        }
+        usort($res_for_year , function($a , $b){
+            if ($a['year'] == $b['year']) {
+                return 0;
+            }
+            return $a['year'] > $b['year'] ? -1 : 1;
+        });
+        $res->data = $res_for_year;
+        return self::success($res);
+    }
 
+    public static function setBackground(Auth $auth , array $param)
+    {
+        $validator = Validator::make($param , [
+            'background' ,
+        ]);
+        if ($validator->fails()) {
+            return self::error(get_form_error($validator));
+        }
+        UserOptionModel::updateByUserId(user()->id , [
+            'friend_circle_background' => $param['background']
+        ]);
+        return self::success();
+    }
+
+    public static function resetFriendCircleUnread(Auth $auth , array $param)
+    {
+        try {
+            DB::beginTransaction();
+            // 先创建
+            $res = FriendCircleUnreadModel::findOrCreateByUserId(user()->id);
+            FriendCircleUnreadModel::updateById($res->id , [
+                'total_unread_count' => 0 ,
+                'comment_unread_count' => 0 ,
+                'commendation_unread_count' => 0 ,
+                'common_unread_count' => 0 ,
+                'friend_circle_unread_count' => 0 ,
+            ]);
+            DB::commit();
+            return self::success();
+        } catch(Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    public static function friendCircleUnread(Auth $auth , array $param)
+    {
+        $res = FriendCircleUnreadModel::findOrCreateByUserId(user()->id);
+        return self::success($res);
+    }
 
 }
